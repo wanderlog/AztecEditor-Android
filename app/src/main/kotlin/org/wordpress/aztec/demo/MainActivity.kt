@@ -631,6 +631,14 @@ open class MainActivity : AppCompatActivity(),
                 } else {
                     aztec.sourceEditor?.redo()
                 }
+            R.id.toggle_color -> {
+                if (aztec.visualEditor.visibility == View.VISIBLE) {
+                    val currentColor = aztec.visualEditor.currentTextColor
+                    val grayColor = ContextCompat.getColor(this, android.R.color.darker_gray)
+                    val defaultColor = ContextCompat.getColor(this, android.R.color.white)
+                    aztec.visualEditor.setTextColor(if (currentColor == grayColor) defaultColor else grayColor)
+                }
+            }
             else -> {
             }
         }

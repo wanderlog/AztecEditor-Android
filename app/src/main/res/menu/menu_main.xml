@@ -21,4 +21,10 @@
         tools:ignore="AlwaysShowAction" >
     </item>
 
+    <item
+        android:id="@+id/toggle_color"
+        android:title="Toggle text color"
+        app:showAsAction="never">
+    </item>
+
 </menu>
