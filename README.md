@@ -1,3 +1,84 @@
+# Wanderlog-specific notes
+
+This is our fork of AztecEditor-Android. This fork should be fairly short-lived,
+as we try to upstream our changes to the main AztecEditor-Android repository.
+
+## Common tasks
+
+### Patching a new version
+
+The overarching steps are:
+
+1. Make and test the change
+2. Make a release based off the version that we're releasing
+
+#### Make and test the change
+
+1. Check out the `trunk` branch: `git checkout trunk`
+2. Make your change
+3. Test it by either running all automated tests or manually testing using the
+   example app.
+
+   - Run automated tests: `./gradlew test connectedAndroidTest`
+   - Run example app: `./gradlew :app:installDebug`
+
+#### Make a release
+
+1. Create a branch, create a merge request, and merge it into `trunk`.
+   It's still helpful to have a full merge request so that we can give more
+   context on why we made the change.
+   ```shell
+   git checkout -b yourname-your-feature
+   git add .
+   git commit -m 'Made some change'
+   git push -u origin yourname-your-feature
+   # Open merge request in GitHub, and merge into trunk
+   ```
+2. Make a release with a version number based on the version that
+   [we use in react-native-aztec](https://gitlab.com/travelchime/react-native-aztec/-/blob/master/android/build.gradle).
+
+   Check the latest version released in
+   https://gitlab.com/travelchime/itineraries/-/packages, and release the
+   version with the next number.
+
+   For example, if:
+
+   - The aztecVersion in [react-native-aztec](https://gitlab.com/travelchime/react-native-aztec/-/blob/master/android/build.gradle) is 1.6.4
+   - The latest version released in https://gitlab.com/travelchime/itineraries/-/packages is v164.0.1
+   - We would want to release v164.0.2
+
+   ```sh
+   git fetch
+
+   # Try this first: the branch likely exists already
+   git checkout v1.6.4-wanderlog
+
+   # If it does not exist, create it
+   git checkout -b v1.6.4-wanderlog
+   git remote add upstream git@github.com:wordpress-mobile/AztecEditor-Android.git
+   git fetch upstream
+   git reset --hard v1.6.4
+
+   # Cherry-pick the commits we want to release from trunk
+   git log trunk
+
+   # See what is the last commit that is not on this branch.
+   # e.g., 806c3a42
+   # Then, cherry-pick all commits after that:
+   git cherry-pick 806c3a42..trunk
+
+   # Push the branch to our Maven repository and GitHub
+   # Get a GitLab access token from https://gitlab.com/-/user_settings/personal_access_tokens
+   # with the "api" scope that expires in 1 day.
+   GITLAB_ACCESS_TOKEN=YOUR_TOKEN ./gradlew :aztec:prepareToPublishToS3 --tag-name v164.0.2 :aztec:publishAllPublicationsToGitLabRepository
+   ```
+
+   **Note**: you'll get an error like
+   ":aztec:publishAztecPublicationPublicationToS3Repository" failed, but
+   that's not a problem as we don't actually publish to S3 (that's
+   the upstream repository).
+
+
 <h1><img align="center" width=50px height=50px src="https://github.com/wordpress-mobile/AztecEditor-Android/raw/trunk/RepoAssets/aztec.png" alt="Aztec Logo"/>&nbsp;Aztec: Native HTML Editor for Android</h1>
 
 [![CircleCI](https://circleci.com/gh/wordpress-mobile/AztecEditor-Android.svg?style=svg)](https://circleci.com/gh/wordpress-mobile/AztecEditor-Android)
