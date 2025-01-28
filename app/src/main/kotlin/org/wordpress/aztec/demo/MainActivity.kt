@@ -34,6 +34,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.app.ActivityCompat.OnRequestPermissionsResultCallback
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import org.wordpress.android.util.AppLog
 import org.wordpress.android.util.ImageUtils
@@ -621,6 +622,14 @@ open class MainActivity : AppCompatActivity(),
                 } else {
                     aztec.sourceEditor?.redo()
                 }
+            R.id.toggle_color -> {
+                if (aztec.visualEditor.visibility == View.VISIBLE) {
+                    val currentColor = aztec.visualEditor.currentTextColor
+                    val grayColor = ContextCompat.getColor(this, android.R.color.darker_gray)
+                    val defaultColor = ContextCompat.getColor(this, android.R.color.white)
+                    aztec.visualEditor.setTextColor(if (currentColor == grayColor) defaultColor else grayColor)
+                }
+            }
             else -> {
             }
         }

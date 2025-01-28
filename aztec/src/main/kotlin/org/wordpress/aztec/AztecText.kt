@@ -275,6 +275,8 @@ open class AztecText : AppCompatEditText, TextWatcher, UnknownHtmlSpan.OnUnknown
 
     private var formatToolbar: IAztecToolbar? = null
 
+    private var savedAttributes: AttributeSet? = null
+
     val selectedStyles = ArrayList<ITextFormat>()
 
     private var isNewStyleSelected = false
@@ -423,57 +425,27 @@ open class AztecText : AppCompatEditText, TextWatcher, UnknownHtmlSpan.OnUnknown
         return super.getText()!!
     }
 
-    @SuppressLint("ResourceType")
-    private fun init(attrs: AttributeSet?) {
-        disableTextChangedListener()
-
-        val styles = context.obtainStyledAttributes(attrs, R.styleable.AztecText, 0, R.style.AztecTextStyle)
-        setLineSpacing(
-                styles.getDimension(
-                        R.styleable.AztecText_lineSpacingExtra,
-                        resources.getDimension(R.dimen.spacing_extra)
-                ),
-                styles.getFloat(
-                        R.styleable.AztecText_lineSpacingMultiplier,
-                        resources.getString(R.dimen.spacing_multiplier).toFloat()
-                )
-        )
-        setBackgroundColor(styles.getColor(R.styleable.AztecText_backgroundColor, ContextCompat.getColor(context, R.color.background)))
-        setTextColor(styles.getColor(R.styleable.AztecText_textColor, ContextCompat.getColor(context, R.color.text)))
-        setHintTextColor(styles.getColor(R.styleable.AztecText_textColorHint, ContextCompat.getColor(context, R.color.text_hint)))
-
-        drawableLoading = styles.getResourceId(R.styleable.AztecText_drawableLoading, R.drawable.ic_image_loading)
-        drawableFailed = styles.getResourceId(R.styleable.AztecText_drawableFailed, R.drawable.ic_image_failed)
-
-        historyEnable = styles.getBoolean(R.styleable.AztecText_historyEnable, historyEnable)
-        historySize = styles.getInt(R.styleable.AztecText_historySize, historySize)
-
-        commentsVisible = styles.getBoolean(R.styleable.AztecText_commentsVisible, commentsVisible)
-
-        verticalParagraphPadding = styles.getDimensionPixelSize(R.styleable.AztecText_blockVerticalPadding,
-                resources.getDimensionPixelSize(R.dimen.block_vertical_padding))
-        verticalParagraphMargin = styles.getDimensionPixelSize(R.styleable.AztecText_paragraphVerticalMargin,
-                resources.getDimensionPixelSize(R.dimen.block_vertical_margin))
-        verticalHeadingMargin = styles.getDimensionPixelSize(R.styleable.AztecText_headingVerticalPadding,
-                resources.getDimensionPixelSize(R.dimen.heading_vertical_padding))
-
-        inlineFormatter = InlineFormatter(this,
-                InlineFormatter.CodeStyle(
-                        styles.getColor(R.styleable.AztecText_codeBackground, 0),
-                        styles.getFraction(R.styleable.AztecText_codeBackgroundAlpha, 1, 1, 0f),
-                        styles.getColor(R.styleable.AztecText_codeColor, 0)),
-                InlineFormatter.HighlightStyle(styles.getResourceId(R.styleable.AztecText_highlightColor, R.color.grey_lighten_10)))
+    /**
+     * Initialize block formatting so that the bullet color is also dependent on the
+     * text color if provided. Will use the bullet color from resources styles if
+     * no text color is provided.
+     */
+    private fun initializeBlockFormatting(styles: TypedArray, textColor: Int? = null) {
+        val bulletColor = textColor ?: styles.getColor(R.styleable.AztecText_bulletColor, 0)
 
         val listStyle = BlockFormatter.ListStyle(
-                styles.getColor(R.styleable.AztecText_bulletColor, 0),
-                styles.getDimensionPixelSize(R.styleable.AztecText_bulletMargin, 0),
-                styles.getDimensionPixelSize(R.styleable.AztecText_bulletPadding, 0),
-                styles.getDimensionPixelSize(R.styleable.AztecText_bulletWidth, 0),
-                verticalParagraphPadding)
+            bulletColor,
+            styles.getDimensionPixelSize(R.styleable.AztecText_bulletMargin, 0),
+            styles.getDimensionPixelSize(R.styleable.AztecText_bulletPadding, 0),
+            styles.getDimensionPixelSize(R.styleable.AztecText_bulletWidth, 0),
+            styles.getDimensionPixelSize(R.styleable.AztecText_blockVerticalPadding,
+                resources.getDimensionPixelSize(R.dimen.block_vertical_padding))
+        )
 
         listItemStyle = BlockFormatter.ListItemStyle(
-                styles.getBoolean(R.styleable.AztecText_taskListStrikethroughChecked, false),
-                styles.getColor(R.styleable.AztecText_taskListCheckedTextColor, 0))
+            styles.getBoolean(R.styleable.AztecText_taskListStrikethroughChecked, false),
+            textColor ?: styles.getColor(R.styleable.AztecText_taskListCheckedTextColor, 0)
+        )
 
         blockFormatter = BlockFormatter(editor = this,
                 listStyle = listStyle,
@@ -530,7 +502,56 @@ open class AztecText : AppCompatEditText, TextWatcher, UnknownHtmlSpan.OnUnknown
                 exclusiveBlockStyles = BlockFormatter.ExclusiveBlockStyles(styles.getBoolean(R.styleable.AztecText_exclusiveBlocks, false), verticalParagraphPadding),
                 paragraphStyle = BlockFormatter.ParagraphStyle(verticalParagraphMargin)
         )
+
         EnhancedMovementMethod.taskListClickHandler = TaskListClickHandler(listStyle)
+    }
+
+    @SuppressLint("ResourceType")
+    private fun init(attrs: AttributeSet?) {
+        disableTextChangedListener()
+
+        val styles = context.obtainStyledAttributes(attrs, R.styleable.AztecText, 0, R.style.AztecTextStyle)
+        savedAttributes = attrs
+        setLineSpacing(
+                styles.getDimension(
+                        R.styleable.AztecText_lineSpacingExtra,
+                        resources.getDimension(R.dimen.spacing_extra)
+                ),
+                styles.getFloat(
+                        R.styleable.AztecText_lineSpacingMultiplier,
+                        resources.getString(R.dimen.spacing_multiplier).toFloat()
+                )
+        )
+        setBackgroundColor(styles.getColor(R.styleable.AztecText_backgroundColor, ContextCompat.getColor(context, R.color.background)))
+
+        // We avoid calling setTextColor() because we haven't initialized the BlockFormatter yet, and don't want to initialize
+        // it twice.
+        super.setTextColor(styles.getColor(R.styleable.AztecText_textColor, ContextCompat.getColor(context, R.color.text)))
+        setHintTextColor(styles.getColor(R.styleable.AztecText_textColorHint, ContextCompat.getColor(context, R.color.text_hint)))
+
+        drawableLoading = styles.getResourceId(R.styleable.AztecText_drawableLoading, R.drawable.ic_image_loading)
+        drawableFailed = styles.getResourceId(R.styleable.AztecText_drawableFailed, R.drawable.ic_image_failed)
+
+        historyEnable = styles.getBoolean(R.styleable.AztecText_historyEnable, historyEnable)
+        historySize = styles.getInt(R.styleable.AztecText_historySize, historySize)
+
+        commentsVisible = styles.getBoolean(R.styleable.AztecText_commentsVisible, commentsVisible)
+
+        verticalParagraphPadding = styles.getDimensionPixelSize(R.styleable.AztecText_blockVerticalPadding,
+            resources.getDimensionPixelSize(R.dimen.block_vertical_padding))
+        verticalParagraphMargin = styles.getDimensionPixelSize(R.styleable.AztecText_paragraphVerticalMargin,
+            resources.getDimensionPixelSize(R.dimen.block_vertical_margin))
+        verticalHeadingMargin = styles.getDimensionPixelSize(R.styleable.AztecText_headingVerticalPadding,
+            resources.getDimensionPixelSize(R.dimen.heading_vertical_padding))
+
+        inlineFormatter = InlineFormatter(this,
+                InlineFormatter.CodeStyle(
+                        styles.getColor(R.styleable.AztecText_codeBackground, 0),
+                        styles.getFraction(R.styleable.AztecText_codeBackgroundAlpha, 1, 1, 0f),
+                        styles.getColor(R.styleable.AztecText_codeColor, 0)),
+                InlineFormatter.HighlightStyle(styles.getResourceId(R.styleable.AztecText_highlightColor, R.color.grey_lighten_10)))
+
+        initializeBlockFormatting(styles)
 
         linkFormatter = LinkFormatter(this, LinkFormatter.LinkStyle(styles.getColor(
                 R.styleable.AztecText_linkColor, 0),
@@ -2394,6 +2415,26 @@ open class AztecText : AppCompatEditText, TextWatcher, UnknownHtmlSpan.OnUnknown
 
     override fun dispatchHoverEvent(event: MotionEvent): Boolean {
         return if (accessibilityDelegate.onHoverEvent(event)) true else super.dispatchHoverEvent(event)
+    }
+
+    /**
+     * Whenever we set the text color of unstyled text, make sure that we also
+     * update the BlockFormatter so the bullet color also changes.
+     */
+    override fun setTextColor(color: Int) {
+        super.setTextColor(color)
+
+        val styles = context.obtainStyledAttributes(savedAttributes, R.styleable.AztecText, 0, R.style.AztecTextStyle)
+
+        disableTextChangedListener()
+        initializeBlockFormatting(styles, color)
+        enableTextChangedListener()
+
+        styles.recycle()
+
+        // Update existing spans
+        editableText.getSpans(0, editableText.length, IAztecBlockSpan::class.java).forEach { blockFormatter.setBlockStyle(it) }
+        editableText.getSpans(0, editableText.length, AztecListItemSpan::class.java).forEach { it.listItemStyle = listItemStyle }
     }
 
 }
